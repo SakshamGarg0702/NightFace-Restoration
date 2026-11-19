@@ -92,36 +92,43 @@ pip install -r requirements.txt
 
 ---
 
-## 📁 Dataset Organization
+## 📁 Dataset Synthesis & Organization
 
-Place the datasets in the `dataset/` directory according to the following structure:
+Because existing low-light benchmarks (such as standard CASIA-Test or LaPa) only contain dark images without realistic high-ISO sensor noise and camera shake, **we synthetically synthesized our own compound degradation datasets** for both training and evaluation using our physics-based degradation generator (`scripts/degrade_dataset.py`):
+
+1. **Training Set (LaPa-Face Degraded):** Synthesized paired images from LaPa-Face (`normal` clean ground truth $\rightarrow$ `degraded` underexposed + Poisson shot noise + Gaussian read noise $\sigma=25$ + $7 \times 7$ motion blur) for biometric fine-tuning.
+2. **Testing Benchmark (CASIA-Test Degraded):** Clean gallery portraits from CASIA-Test were degraded with identical severe physical noise and blur conditions (`underexposed_noisy_blurry`) to benchmark closed-set 1:N face identification under extreme sub-lux surveillance.
 
 ```text
 dataset/
 ├── CASIA-Test/
 │   ├── normal/                            # 100 clean gallery portrait folders
-│   ├── underexposed/                      # 100 underexposed folders
-│   └── underexposed_noisy_blurry/         # 100 DEGRADED folders (dark + noise + blur)
+│   ├── underexposed/                      # Standard underexposed folders
+│   └── underexposed_noisy_blurry/         # OUR SYNTHESIZED TEST SET (dark + noise + blur)
 │       ├── 001/
 │       └── ...
 │
 └── LaPa-Face/                             # (Cross-Dataset Training Pairs)
     ├── normal/                            # Clean ground truth images
-    └── degraded/                          # Synthetically degraded training images
+    └── degraded/                          # OUR SYNTHESIZED TRAINING SET (generated via degrade_dataset.py)
 ```
 
 > **Dataset Download Bundle:**  
-> Download the pre-packaged dataset bundle and checkpoints directly from Kaggle:  
+> To make reproduction immediate without needing to run the degradation script across thousands of images, download our pre-packaged synthesized dataset bundle and model weights directly from Kaggle:  
 > 🔗 [Kaggle Dataset: Low-FaceNet Bundle](https://www.kaggle.com/datasets/sakshamgarg0702/lowfacenet-bundle)
 
 ---
 
 ## 💻 Running the Scripts
 
-### Synthetic Degradation Generator
-To synthetically generate the low-light, Poisson-Gaussian noise, and motion blur degradation on any clean image folder:
+### Step 0: Synthesize Degraded Datasets (Self-Generated)
+If you want to synthesize the degraded training or testing sets yourself from scratch:
 ```bash
+# 1. Generate degraded training dataset (LaPa-Face)
 python scripts/degrade_dataset.py --input_dir dataset/LaPa-Face/normal --output_dir dataset/LaPa-Face/degraded
+
+# 2. Generate degraded evaluation benchmark (CASIA-Test)
+python scripts/degrade_dataset.py --input_dir dataset/CASIA-Test/normal --output_dir dataset/CASIA-Test/underexposed_noisy_blurry
 ```
 
 ### Stage 1: Reproduce Baseline (Low-FaceNet Alone)

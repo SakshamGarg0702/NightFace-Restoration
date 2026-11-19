@@ -64,8 +64,8 @@ flowchart TD
     classDef lossStyle fill:#78350f,stroke:#f59e0b,stroke-width:2px,color:#fff;
 
     %% Input Block
-    subgraph S0 ["Physical Capture (Sub-Lux Environment)"]
-        IN["Degraded Input (640x480)<br/>• Underexposure: Gamma ∈ [2.5, 4.0]<br/>• Poisson Shot Noise (Photon Starvation)<br/>• Gaussian Read Noise (σ = 25)<br/>• Linear Motion Blur (7x7 PSF)"]:::inputStyle
+    subgraph S0 ["Physical Capture (Sub-Lux Degradation)"]
+        IN["Degraded Input (640x480)<br/>• Train: LaPa-Face Degraded Pairs<br/>• Test: CASIA-Test Degraded (Cross-Dataset)<br/>• Poisson Shot Noise + Gaussian Read Noise (σ=25)<br/>• Linear Motion Blur (7x7 PSF)"]:::inputStyle
     end
 
     %% Stage 1 Block
@@ -107,8 +107,8 @@ flowchart TD
     end
 
     %% Loss Branch (Training Only)
-    subgraph S4 ["Biometric Identity Fine-Tuning (Training Phase)"]
-        CL_IMG["Clean Ground-Truth Face"]:::lossStyle
+    subgraph S4 ["Biometric Identity Fine-Tuning (Training Phase on LaPa-Face)"]
+        CL_IMG["Clean LaPa-Face Ground-Truth"]:::lossStyle
         FN_CLN["Frozen FaceNet Embedding"]:::lossStyle
         LOSS["Compound Objective:<br/>L_Total = L_1 + 1.0 · (1 - CosineSimilarity)"]:::lossStyle
 

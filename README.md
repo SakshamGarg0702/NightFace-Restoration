@@ -13,7 +13,10 @@ Official implementation of the **Two-Stage Language-Guided Biometric Restoration
 ## 📌 Executive Summary
 
 Under extreme low-light conditions, face recognition pipelines suffer catastrophic failures. The baseline paper **Low-FaceNet** (*IEEE Transactions on Instrumentation and Measurement*, Vol. 73, March 2024) addresses underexposure through Retinex dynamic range enhancement:
-$$R(x) = \frac{S(x)}{I(x)}$$
+
+```math
+R(x) = \frac{S(x)}{I(x)}
+```
 
 However, in real-world camera sensor acquisition, underexposure is coupled with high-ISO Poisson shot noise, Gaussian read noise, and motion blur. Because Low-FaceNet brightens scenes by dividing pixel intensities by small predicted illumination values ($I(x) \ll 1$), it scales read noise variance quadratically by $1/I(x)^2$, amplifying noise by up to $10^4\times$ in deep shadows. On the degraded **CASIA-Test** benchmark, this leads to:
 - Severe landmark jitter in **RetinaFace**, causing frequent face detection dropouts (`[!] No face detected`).
@@ -21,10 +24,13 @@ However, in real-world camera sensor acquisition, underexposure is coupled with 
 
 ### 💡 Our Proposed Solution
 We propose a **Two-Stage Decoupled Restoration-Identification Architecture**:
-1. **Illumination Front-End:** Low-FaceNet expands the global dynamic range and restores luminance.
-2. **Text-Conditioned Restoration Back-End:** **InstructIR** (*ECCV 2024*), an instruction-conditioned NAFNet backbone, eliminates non-linear sensor noise and motion blur guided by the prompt: `"Deblur and denoise the image."`
-3. **Biometric Identity Fine-Tuning:** InstructIR is fine-tuned using a compound objective combining $L_1$ pixel reconstruction and **MobileNet-FaceNet Cosine Identity Loss** over face-centric $320 \times 320$ crops:
-   $$\mathcal{L}_{\text{Total}} = \mathcal{L}_{L1} + 1.0 \cdot (1 - \text{CosineSimilarity}(\text{FaceNet}(\hat{I}), \text{FaceNet}(I_{\text{clean}})))$$
+1. **Illumination Front-End:** Low-FaceNet expands global dynamic range and restores scene illumination.
+2. **Text-Conditioned Restoration Back-End:** **InstructIR** (*ECCV 2024*), an instruction-conditioned NAFNet backbone, removes sensor noise and motion blur guided by natural language prompt: `"Deblur and denoise the image."`
+3. **Biometric Identity Fine-Tuning:** InstructIR is fine-tuned using face-centric $320 \times 320$ crops with a compound loss combining $L_1$ pixel reconstruction and frozen MobileNet-FaceNet Cosine Identity loss:
+
+```math
+\mathcal{L}_{\text{Total}} = \mathcal{L}_{L1} + 1.0 \cdot \left(1 - \text{CosineSimilarity}\left(\text{FaceNet}(\hat{I}), \text{FaceNet}(I_{\text{clean}})\right)\right)
+```
 
 ---
 

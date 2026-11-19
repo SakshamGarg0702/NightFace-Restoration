@@ -30,13 +30,17 @@ We propose a **Two-Stage Decoupled Restoration-Identification Architecture**:
 
 ## 📊 Experimental Results (CASIA-Test Benchmark)
 
-Evaluated under closed-set 1:N probe-to-gallery identification matching with RetinaFace alignment:
+Evaluated under closed-set 1:N probe-to-gallery identification matching (500 probe images across 100 identities):
 
-| Stage | Method | RetinaFace Detection | Top-1 Identification Accuracy | $\Delta$ vs Baseline |
+| Stage | Pipeline Configuration | Face Detection Rate (RetinaFace) | Top-1 Identity Accuracy (FaceNet) | $\Delta$ vs Baseline |
 | :---: | :--- | :---: | :---: | :---: |
-| **Stage 1** | **Low-FaceNet Alone** (*IEEE TIM 2024 Baseline*) | 68.0% (Dropouts: `[!] No face detected`) | **12.6%** | Baseline |
-| **Stage 2** | **Low-FaceNet + Zero-Shot InstructIR** (*ECCV 2024*) | **100.0%** (0 dropouts) | **62.6%** | **+50.0%** |
-| **Stage 3** | **Low-FaceNet + Biometrically Fine-Tuned InstructIR** (*Ours*) | **100.0%** (0 dropouts) | **70.2%** | **+57.6%** |
+| **Stage 1** | **Low-FaceNet Alone** (*IEEE TIM 2024 Baseline*) | **68.0%** (160 faces missed due to noise) | **12.6%** (63 / 500 identities matched) | Baseline |
+| **Stage 2** | **Low-FaceNet + Zero-Shot InstructIR** (*ECCV 2024*) | **100.0%** (500 / 500 faces successfully found) | **62.6%** (313 / 500 identities matched) | **+50.0%** |
+| **Stage 3** | **Low-FaceNet + Biometrically Fine-Tuned InstructIR** (*Ours*) | **100.0%** (500 / 500 faces successfully found) | **70.2%** (351 / 500 identities matched) | **+57.6%** |
+
+> **Understanding the Two Metrics:**
+> - **Face Detection Rate (Step 1 - RetinaFace):** Did the detector locate a human face and its 5 landmarks in the image? Low-FaceNet's Retinex noise amplification caused **32% detection dropouts** (`[!] No face detected`). Our pipeline restores structural clarity, achieving a complete **100% detection rate** (zero dropouts).
+> - **Top-1 Identity Accuracy (Step 2 - FaceNet):** Once the face is detected, was the correct person identified from the 100-identity gallery? Fine-tuning with biometric identity loss boosts recognition from **12.6% to 70.2%**.
 
 ---
 

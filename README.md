@@ -50,26 +50,79 @@ Evaluated under closed-set 1:N probe-to-gallery identification matching (500 pro
 
 ---
 
-## 🏗️ System Architecture
+## 🏗️ System Architecture & Pipeline Flow
 
-```text
-[Dark Noisy Blurry Input (640x480)] ---> [Low-FaceNet Front-End] ---> [Brightened, High Noise Image]
-                                                                                |
-[Prompt: "Deblur and denoise the image."] ---> [MiniLM + LMHead]               |
-                                                      |                         v
-                                                      +-------------> [InstructIR Back-End]
-                                                                                |
-                                                                    [Restored Face (640x480)]
-                                                                                |
-                                                                                v
-                                                                    [RetinaFace Alignment]
-                                                                                |
-                                                                                v
-                                                                    [FaceNet 128-D Embedding]
-                                                                                |
-                                                                                v
-                                                                    [1:N Closed-Set Matching]
+The framework employs a **decoupled, two-stage modular architecture** that separates global illumination recovery from local structural denoising and deblurring:
+
+```mermaid
+flowchart TD
+    classDef inputStyle fill:#2d3748,stroke:#4a5568,stroke-width:2px,color:#fff;
+    classDef stage1Style fill:#1e3a8a,stroke:#3b82f6,stroke-width:2px,color:#fff;
+    classDef stage2Style fill:#4c1d95,stroke:#8b5cf6,stroke-width:2px,color:#fff;
+    classDef textStyle fill:#065f46,stroke:#10b981,stroke-width:2px,color:#fff;
+    classDef recogStyle fill:#831843,stroke:#ec4899,stroke-width:2px,color:#fff;
+    classDef lossStyle fill:#78350f,stroke:#f59e0b,stroke-width:2px,color:#fff;
+
+    %% Input Block
+    subgraph S0 ["Physical Capture (Sub-Lux Environment)"]
+        IN["Degraded Input (640x480)<br/>• Underexposure: Gamma ∈ [2.5, 4.0]<br/>• Poisson Shot Noise (Photon Starvation)<br/>• Gaussian Read Noise (σ = 25)<br/>• Linear Motion Blur (7x7 PSF)"]:::inputStyle
+    end
+
+    %% Stage 1 Block
+    subgraph S1 ["Stage 1: Dynamic Range Recovery (Low-FaceNet)"]
+        LFN["Low-FaceNet EnhanceNet<br/>Retinex Decomposition: S = R × I"]:::stage1Style
+        ILLUM["Illumination Map I(x)<br/>Clamped: [1e-4, 1.0]"]:::stage1Style
+        REF["Reflectance: R(x) = S(x) / I(x)<br/>⚠️ High Noise Scaled: σ² / I²"]:::stage1Style
+        
+        IN --> LFN
+        LFN --> ILLUM
+        LFN --> REF
+    end
+
+    %% Stage 2 Block
+    subgraph S2 ["Stage 2: Language-Conditioned Restoration (InstructIR)"]
+        TXT["Text Instruction:<br/>'Deblur and denoise the image.'"]:::textStyle
+        LM["Frozen MiniLM-L6-v2 + LMHead<br/>(Computed on CPU to avoid GPU mismatch)"]:::textStyle
+        EMB["Conditioning Vector e ∈ ℝ²⁵⁶"]:::textStyle
+        
+        NAF["InstructIR (NAFNet Backbone)<br/>• Simplified Channel Attention (SCA)<br/>• Simple Gate (SG) Nonlinearities<br/>• Dynamic Instruction Channel Masks"]:::stage2Style
+        REST["Restored Face Image (640x480)<br/>Denoised & Deblurred at Native Res"]:::stage2Style
+
+        TXT --> LM --> EMB
+        REF --> NAF
+        EMB -->|"Channel Modulation m_c = σ(W_c · e)"| NAF
+        NAF --> REST
+    end
+
+    %% Stage 3 Block
+    subgraph S3 ["Stage 3: Downstream Biometric Verification & Training Loss"]
+        RF["RetinaFace Detector<br/>(MobileNet0.25 Backbone)"]:::recogStyle
+        LAND["5-Point Landmark Localization<br/>& Canonical Face Alignment"]:::recogStyle
+        CROP["Aligned 160x160 Face Crop"]:::recogStyle
+        FN["FaceNet Feature Extractor<br/>(MobileNet, strict=False)"]:::recogStyle
+        EMB_OUT["128-D Biometric Embedding Vector"]:::recogStyle
+        MATCH["Closed-Set 1:N Matching<br/>Cosine Distance vs Gallery"]:::recogStyle
+
+        REST --> RF --> LAND --> CROP --> FN --> EMB_OUT --> MATCH
+    end
+
+    %% Loss Branch (Training Only)
+    subgraph S4 ["Biometric Identity Fine-Tuning (Training Phase)"]
+        CL_IMG["Clean Ground-Truth Face"]:::lossStyle
+        FN_CLN["Frozen FaceNet Embedding"]:::lossStyle
+        LOSS["Compound Objective:<br/>L_Total = L_1 + 1.0 · (1 - CosineSimilarity)"]:::lossStyle
+
+        CL_IMG --> FN_CLN
+        CROP -.-> LOSS
+        FN_CLN -.-> LOSS
+        LOSS -.->|"Backprop Gradients"| NAF
+    end
 ```
+
+### 🧩 Key Architecture Design Principles:
+1. **Decoupled Physics:** Instead of forcing one network to concurrently solve conflicting tasks (exposure brightening requires increasing signal gain, whereas denoising requires suppressing high frequencies), our two-stage architecture treats illumination expansion and structural artifact elimination as decoupled inverse problems.
+2. **Text-Guided Routing:** InstructIR uses cross-attention-free channel gating ($m_c = \sigma(W_c \cdot e)$) driven by a 256-D natural language representation, selectively activating deblurring and denoising feature filters.
+3. **Biometric Loss Propagation:** Gradients from the frozen FaceNet backbone directly supervise InstructIR during fine-tuning, penalizing alterations to subtle biometric facial features (eyes, nose bridge, lips) that standard $L_1$/PSNR metrics ignore.
 
 ---
 

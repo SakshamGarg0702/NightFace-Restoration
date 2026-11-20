@@ -1,7 +1,6 @@
 new_samples/
 *.ipynb
 *.zip
-*/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

@@ -139,9 +139,10 @@ cd NightFace-Restoration
 pip install -r requirements.txt
 ```
 
-### 3. Pretrained Weights
-- **InstructIR Weights:** Downloaded automatically via `huggingface_hub` from [marcosv/InstructIR](https://huggingface.co/marcosv/InstructIR) at runtime.
-- **Low-FaceNet & FaceNet Weights:** Place `Low-FaceNet.pth`, `facenet_mobilenet.pth`, and `Retinaface_mobilenet0.25.pth` into the `checkpoint/` directory.
+### 3. Pretrained & Fine-Tuned Weights
+- **Our Fine-Tuned Model (70.2% Top-1 Acc):** Download [`instructir_biometric_finetuned.pth`](https://github.com/sakshamgarg0702/NightFace-Restoration/releases/download/v1.0/instructir_biometric_finetuned.pth) from [GitHub Releases v1.0](https://github.com/sakshamgarg0702/NightFace-Restoration/releases/tag/v1.0) and place it into the `checkpoint/` directory.
+- **Low-FaceNet & FaceNet Weights:** Download `Low-FaceNet.pth`, `facenet_mobilenet.pth`, and `Retinaface_mobilenet0.25.pth` from our [Kaggle Bundle](https://www.kaggle.com/datasets/sakshamgarg0702/lowfacenet-bundle) into `checkpoint/`.
+- **Pretrained InstructIR (Zero-Shot):** Automatically downloaded via `huggingface_hub` from [marcosv/InstructIR](https://huggingface.co/marcosv/InstructIR) on first run.
 
 ---
 

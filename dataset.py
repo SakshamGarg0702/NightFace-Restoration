@@ -66,9 +66,7 @@ class Face_dataset(data.Dataset):
         return self.train_id_to_color[target]
 
     def _add_poisson_gaussian_noise(self, img_tensor):
-        # Applies noise on the fly to 50% of the training images
         if random.random() < 0.5:
-            # Moderate to strong noise
             noise_level = random.uniform(0.5, 1.5)
             img_np = img_tensor.numpy()
             scale = 100.0 / (noise_level + 1e-5)

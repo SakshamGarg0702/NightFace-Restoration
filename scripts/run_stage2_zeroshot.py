@@ -1,18 +1,3 @@
-"""
-===================================================================================
-Stage 2: Two-Stage Zero-Shot Restoration (Low-FaceNet + Pretrained InstructIR)
-===================================================================================
-Evaluates off-the-shelf InstructIR (ECCV 2024) without any fine-tuning (Zero-Shot):
-  - Input: dataset/CASIA-Test/SOTAs/LowFaceNet_Baseline (Enhanced DEGRADED CASIA-Test images)
-  - Natural Language Condition: "Deblur and denoise the image."
-  - Output: dataset/CASIA-Test/SOTAs/LowFaceNet_InstructIR_ZeroShot
-  - Evaluation Benchmark: Tested strictly on DEGRADED CASIA-Test (100 identities, 500 images)
-
-Expected Output: ~62.6% closed-set identification accuracy (+50.0% leap over baseline)
-with 100% RetinaFace landmark detection (0% detection dropouts).
-===================================================================================
-"""
-
 import os
 import sys
 import yaml
@@ -24,7 +9,6 @@ from PIL import Image
 from tqdm import tqdm
 from huggingface_hub import hf_hub_download
 
-# Project root on import path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 sys.path.append(os.path.abspath("InstructIR"))
 
@@ -33,7 +17,6 @@ from text.models import LanguageModel, LMHead
 
 
 def collect_degraded_images(root):
-    """Gather (person_id, filename) pairs from identity subdirectories."""
     pairs = []
     valid_ext = ('.jpg', '.png', '.jpeg', '.bmp')
     for pid in sorted(os.listdir(root)):
@@ -46,7 +29,6 @@ def collect_degraded_images(root):
 
 
 def load_instructir(device):
-    """Instantiate InstructIR from config and official weights."""
     cfg_candidates = [
         "InstructIR/configs/eval7d.yml",
         "InstructIR/configs/eval5d.yml"
@@ -75,7 +57,6 @@ def load_instructir(device):
 
 
 def build_prompt_embedding(cfg, device):
-    """Compute prompt embedding on CPU to avoid device mismatch, then send to GPU."""
     lc = cfg["llm"]
 
     lm = LanguageModel(model=lc["model"]).to("cpu")
@@ -91,7 +72,7 @@ def build_prompt_embedding(cfg, device):
     head.eval()
 
     instruction = "Deblur and denoise the image."
-    print(f"Conditioning InstructIR with natural language instruction: '{instruction}'")
+    print(f"Conditioning text prompt: '{instruction}'")
     with torch.no_grad():
         raw = lm(instruction)
         emb, _ = head(raw)
@@ -102,24 +83,20 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Device: {device}")
 
-    # --- 1. Load Pretrained InstructIR & Text Condition ---
     model, cfg = load_instructir(device)
     prompt_emb = build_prompt_embedding(cfg, device)
-    print(f"Text condition vector shape: {prompt_emb.shape}")
 
-    # --- 2. Paths (TESTED STRICTLY ON DEGRADED CASIA-TEST OUTPUTS) ---
     in_root = "dataset/CASIA-Test/SOTAs/LowFaceNet_Baseline"
     out_root = "dataset/CASIA-Test/SOTAs/LowFaceNet_InstructIR_ZeroShot"
     os.makedirs(out_root, exist_ok=True)
 
     images = collect_degraded_images(in_root)
-    print(f"Restoring {len(images)} enhanced DEGRADED CASIA-Test images (Zero-Shot Mode)...")
+    print(f"Processing {len(images)} images (zero-shot)...")
 
     to_tensor = T.ToTensor()
 
-    # --- 3. Restore all 500 Degraded Images at Native 640x480 Resolution ---
     with torch.no_grad():
-        for pid, fname in tqdm(images, desc="InstructIR Zero-Shot Restoration (Degraded CASIA-Test)"):
+        for pid, fname in tqdm(images, desc="InstructIR restoration"):
             src = os.path.join(in_root, pid, fname)
             dst_dir = os.path.join(out_root, pid)
             os.makedirs(dst_dir, exist_ok=True)
@@ -132,15 +109,12 @@ def main():
             out = torch.clamp(out, 0.0, 1.0)
             T.ToPILImage()(out.squeeze(0).cpu()).save(dst)
 
-    print(f"\nZero-shot restored images saved to: {out_root}")
+    print(f"Saved zero-shot restored images to: {out_root}")
 
-    # --- 4. Reset Encodings & Run Evaluation on Degraded CASIA-Test ---
     shutil.rmtree("encoding", ignore_errors=True)
     os.makedirs("encoding", exist_ok=True)
 
-    print("\n" + "="*70)
-    print("EVALUATING STAGE 2: Low-FaceNet + Zero-Shot InstructIR on DEGRADED CASIA-Test")
-    print("="*70)
+    print("\nRunning evaluation...")
     os.system("python eval.py --dataset_name=CASIA-Test --method_name=LowFaceNet_InstructIR_ZeroShot")
 
 

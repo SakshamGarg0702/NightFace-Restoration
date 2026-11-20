@@ -1,16 +1,3 @@
-"""
-===================================================================================
-Stage 1: Baseline Evaluation (Base Paper - Low-FaceNet, IEEE TIM 2024)
-===================================================================================
-Evaluates Low-FaceNet on the DEGRADED CASIA-Test benchmark:
-  - Input: dataset/CASIA-Test/underexposed_noisy_blurry (Severely degraded: low-light, high-ISO Poisson-Gaussian noise, motion blur)
-  - Output: dataset/CASIA-Test/SOTAs/LowFaceNet_Baseline
-
-Expected Output: ~12.6% closed-set identification accuracy with frequent RetinaFace
-landmark detection dropouts ([!] No face detected) caused by Retinex noise amplification (1/I^2).
-===================================================================================
-"""
-
 import os
 import sys
 import shutil
@@ -19,13 +6,11 @@ import torchvision.transforms as T
 from PIL import Image
 from tqdm import tqdm
 
-# Make sure we can import from project root
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 from model import EnhanceNet
 
 
 def find_all_degraded_images(root_dir):
-    """Walk through identity subdirectories and collect all degraded image paths."""
     tasks = []
     valid_ext = ('.jpg', '.png', '.jpeg', '.bmp')
 
@@ -43,7 +28,6 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Device: {device}")
 
-    # --- 1. Load Base Paper Low-FaceNet Weights ---
     weight_candidates = [
         "checkpoint/Low-FaceNet.pth",
         "checkpoint/best_casia_weight.pth",
@@ -54,12 +38,11 @@ def main():
         print("Error: Could not find Low-FaceNet weights in checkpoint/ directory.")
         return
 
-    print(f"Loading Low-FaceNet model weights from: {weight_path}")
+    print(f"Loading weights from {weight_path}")
     net = EnhanceNet().to(device)
     net.load_state_dict(torch.load(weight_path, map_location=device), strict=False)
     net.eval()
 
-    # --- 2. Ensure face_module weights exist ---
     os.makedirs("face_module/model_data", exist_ok=True)
     for w in ["facenet_mobilenet.pth", "Retinaface_mobilenet0.25.pth"]:
         sw = os.path.join("checkpoint", w)
@@ -67,25 +50,21 @@ def main():
         if os.path.exists(sw) and not os.path.exists(dw):
             shutil.copy2(sw, dw)
 
-    # --- 3. Reset evaluation caches ---
     for cache_dir in ("encoding", "database"):
         shutil.rmtree(cache_dir, ignore_errors=True)
         os.makedirs(cache_dir, exist_ok=True)
 
-    # --- 4. Prepare Paths (DEGRADED CASIA-TEST INPUT) ---
     degraded_input_root = "dataset/CASIA-Test/underexposed_noisy_blurry"
     output_root = "dataset/CASIA-Test/SOTAs/LowFaceNet_Baseline"
     os.makedirs(output_root, exist_ok=True)
 
     image_list = find_all_degraded_images(degraded_input_root)
-    print(f"Found {len(image_list)} DEGRADED images across all 100 identity folders in {degraded_input_root}.")
+    print(f"Found {len(image_list)} images in {degraded_input_root}")
 
     to_tensor = T.ToTensor()
 
-    # --- 5. Enhance Degraded Images with Low-FaceNet ---
-    print("\nProcessing DEGRADED images through Low-FaceNet front-end...")
     with torch.no_grad():
-        for person_id, fname in tqdm(image_list, desc="Low-FaceNet Baseline (Degraded Input)"):
+        for person_id, fname in tqdm(image_list, desc="Enhancing with Low-FaceNet"):
             src = os.path.join(degraded_input_root, person_id, fname)
             dst_dir = os.path.join(output_root, person_id)
             os.makedirs(dst_dir, exist_ok=True)
@@ -101,12 +80,8 @@ def main():
 
             T.ToPILImage()(result.squeeze(0).cpu()).save(dst)
 
-    print(f"\nAll enhanced baseline images saved to: {output_root}")
-
-    # --- 6. Subprocess Evaluation on Degraded CASIA-Test ---
-    print("\n" + "="*70)
-    print("EVALUATING STAGE 1: Low-FaceNet Alone on DEGRADED CASIA-Test Benchmark")
-    print("="*70)
+    print(f"Saved enhanced images to: {output_root}")
+    print("\nRunning evaluation...")
     os.system("python eval.py --dataset_name=CASIA-Test --method_name=LowFaceNet_Baseline")
 
 

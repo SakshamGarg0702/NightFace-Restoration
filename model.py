@@ -4,7 +4,6 @@ import torch.nn as nn
 class SpatialAttention(nn.Module):
     def __init__(self, kernel_size=7):
         super(SpatialAttention, self).__init__()
-        # Takes mean and max pooling across channels
         self.conv1 = nn.Conv2d(2, 1, kernel_size, padding=kernel_size//2, bias=False)
         self.sigmoid = nn.Sigmoid()
 
@@ -22,7 +21,6 @@ class EnhanceNet(nn.Module):
         self.phase = phase
         dim = 64
         self.e_conv1 = nn.Conv2d(3, dim, 3, 1, 1, bias=True)
-        # Add the spatial attention module to estimate/attenuate noise
         self.spatial_attention = SpatialAttention()
         
         self.e_conv2 = nn.Conv2d(dim, dim, 3, 1, 1, bias=True)
@@ -44,7 +42,6 @@ class EnhanceNet(nn.Module):
 
     def forward(self, x):
         x1 = self.relu(self.e_conv1(x))
-        # Apply spatial attention to shallow features to suppress high-frequency noise
         x1 = self.spatial_attention(x1)
         
         x2 = self.relu(self.e_conv2(x1))
